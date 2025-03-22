@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -8,12 +9,85 @@ from ydata_profiling import ProfileReport
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
-def load_data(file_path: str | Path) -> pd.DataFrame:
-    """Loads the cocktail dataset from the JSON file (OS agnostic file path)."""
-    logger.info(f"Loading data from {file_path}")
-    cocktail_df = pd.read_json(Path(file_path).resolve())
-    logger.info(f"Loaded dataset with shape: {cocktail_df.shape}")
-    return cocktail_df
+def test_eda(file_path: str | Path) -> pd.DataFrame:
+    with open(Path(file_path).resolve()) as file:
+        cocktails_data = json.load(file)
+
+    # Main cocktail information
+    cocktails_df = pd.json_normalize(cocktails_data)
+
+    # Ingredients information
+    ingredients_list = []
+    for cocktail in cocktails_data:
+        for ingredient in cocktail.get('ingredients', []):
+            ingredient['cocktail_id'] = cocktail['id']
+            ingredient['cocktail_name'] = cocktail['name']
+            ingredients_list.append(ingredient)
+
+    ingredients_df = pd.DataFrame(ingredients_list)
+    ingredient_pivot = ingredients_df.pivot_table(
+        index=['cocktail_id', 'cocktail_name'],
+        columns='name',
+        values='alcohol',  # or another relevant value
+        aggfunc='first',  # or sum, mean, etc.
+        fill_value=0
+    )
+
+    # Reset index to prepare for merge
+    ingredient_pivot = ingredient_pivot.reset_index()
+
+    # Merge with the main cocktail dataframe
+    wide_df = cocktails_df.merge(
+        right=ingredient_pivot,
+        how='left',
+        left_on='id',
+        right_on='cocktail_id',
+    )
+
+    # Clean up - drop redundant columns if needed
+    wide_df = wide_df.drop('cocktail_id', axis=1)
+    return wide_df
+
+
+# def load_data(file_path: str | Path) -> pd.DataFrame:
+#     """Loads the cocktail dataset from the JSON file (OS agnostic file path)."""
+#     logger.info(f"Loading data from {file_path}")
+#     with open(Path(file_path).resolve()) as file:
+#         cocktails_data = json.load(file)
+
+#     cocktails_df = pd.json_normalize(cocktails_data)
+
+#     # Ingredients information
+#     ingredients_list = []
+#     for cocktail in cocktails_data:
+#         for ingredient in cocktail.get('ingredients', []):
+#             ingredient['cocktail_id'] = cocktail['id']
+#             ingredient['cocktail_name'] = cocktail['name']
+#             ingredients_list.append(ingredient)
+
+#     ingredients_df = pd.DataFrame(ingredients_list)
+
+#     cocktail_df = pd.json_normalize(Path(file_path).resolve())
+#     logger.info(f"Loaded dataset with shape: {cocktail_df.shape}")
+#     return cocktail_df
+
+
+
+# For exploratory analysis, you'll want to flatten nested structures
+# Create dataframes for different components
+
+# Main cocktail information
+# cocktails_df = pd.json_normalize(cocktails_data)
+
+# # Ingredients information
+# ingredients_list = []
+# for cocktail in cocktails_data:
+#     for ingredient in cocktail.get('ingredients', []):
+#         ingredient['cocktail_id'] = cocktail['id']
+#         ingredient['cocktail_name'] = cocktail['name']
+#         ingredients_list.append(ingredient)
+        
+# ingredients_df = pd.DataFrame(ingredients_list)
 
 
 def _calculate_missing_percentage(df_column: pd.DataFrame) -> float:
@@ -69,10 +143,16 @@ def run_ydata_profiling(cocktail_df: pd.DataFrame, report_path: str | Path) -> N
 
 
 if __name__ == "__main__":
+    # file_path = Path(__file__).parents[1] / "data" / "cocktail_dataset.json"
+    # cocktail_df = load_data(file_path)
+    # explore_data(cocktail_df)
+    # reports_dir = Path(__file__).parents[1] / "reports"
+    # reports_dir.mkdir(exist_ok=True)
+    # report_path = reports_dir / "cocktail_dataset_report.html"
+    # run_ydata_profiling(cocktail_df, report_path)
     file_path = Path(__file__).parents[1] / "data" / "cocktail_dataset.json"
-    cocktail_df = load_data(file_path)
-    explore_data(cocktail_df)
+    wide_df = test_eda(file_path)
     reports_dir = Path(__file__).parents[1] / "reports"
     reports_dir.mkdir(exist_ok=True)
-    report_path = reports_dir / "cocktail_dataset_report.html"
-    run_ydata_profiling(cocktail_df, report_path)
+    report_path = reports_dir / "test_report.html"
+    run_ydata_profiling(wide_df, report_path)

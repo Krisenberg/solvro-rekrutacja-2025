@@ -29,8 +29,10 @@
 \definecolor{gray}{rgb}{0.5,0.5,0.5}
 \definecolor{mauve}{rgb}{0.58,0,0.82}
 
-\newcommand{\code}[1]{\textcolor{Fuchsia}{\textbf{\texttt{#1}}}}
+% \newcommand{\code}[1]{\textcolor{Fuchsia}{\textbf{\texttt{#1}}}}
 \renewcommand{\contentsname}{Spis treści}
+\addto\captionspolish{\renewcommand{\refname}{Źródła}}
+
 \renewcommand*\descriptionlabel[1]{\hspace\leftmargin$#1$}
 \addto\captionspolish{\renewcommand{\figurename}{Zdjęcie}}
 
@@ -70,6 +72,9 @@
   tabsize=3
 }
 
+\definecolor{light-gray}{gray}{0.95}
+\newcommand{\code}[1]{\colorbox{light-gray}{\texttt{#1}}}
+
 \begin{document}
 
 \maketitle
@@ -77,7 +82,31 @@
 \clearpage
 
 \section{Wstęp}
-    Laboratorium nr 5 dotyczyło wykorzystania sieci neuronowych w praktycznym problemie regresji. Jego celem było poznanie podstaw działania sieci neuronowej typu MLP (\textit{Multi-layer Perceptron}) oraz wpływu poszczególnych jej hiperparametrów. Dalsze sekcje sprawozdania stanowią opis kolejnych kroków podjętych podczas rozwiązywania zadania. Obejmują one: podział zbioru danych na część uczącą i walidacyjną, sprawdzenie działania domyślnego modelu typu MLP o domyślnej konfiguracji, badanie wpływu tempa uczenia oraz rozmiaru modelu (liczby neuronów) na osiągane wyniki, a także przetestowanie ostatecznie wybranej konfiguracji na samodzielnie przygotowanych danych (żartach).
+    W niniejszym raporcie przedstawione zostało rozwiązanie zadania rekrutacyjnego do sekcji uczenia maszynowego Koła Naukowego Solvro (rekrutacja wiosenna 2025). Zadanie polegało na eksploracyjnej analizie danych oraz klasteryzacji podanego zbioru \cite{instrukcja}.
+
+\section{Analiza danych}
+    Zbiór danych, pochodzący z bazy danych TheCocktailDB, zawierał listę koktajli wraz ze składnikami niezbędnymi do ich przyrządzenia. Link do zbioru danych został dołączony do sekcji Źródeł tego raportu \cite{zbior_danych}.
+
+    W celu przeprowadzenia wstępnej analizy danych (\textit{EDA}) napisany został skrypt \code{src/eda.py}, który miał za zadanie:
+    \begin{itemize}
+        \item wczytać dane z pliku w formacie JSON do formatu DataFrame z biblioteki Pandas,
+        \item wyświetlić podstawowe statystyki danych,
+        \item wygenerować pełny raport opisujący dane korzystając z biblioteki ydata-profiling.
+    \end{itemize}
+    Na zdjęciu nr \ref{fig:run_eda} przedstawiony został fragment wyjścia standardowego po uruchomieniu skryptu.
+
+    \begin{figure}[!htbp]%
+        \centering
+        \includegraphics[width=\textwidth]{eda_run.png}
+        \caption{Uruchomienie skryptu src/eda.py}%
+        \label{fig:run_eda}
+    \end{figure}
+
+    Informacje dostarczone przez skrypt i wygenerowany raport pozwoliły na wyciągnięcie nastepujących wniosków:
+    \begin{enumerate}
+        \item Każdy koktajl ze zbioru danych opisany jest przez 11 cech, przy czym 4 z nich są zupełnie nieistotne z punktu widzenia dalszej analizy, ponieważ albo zawierają informacje typowo bazodanowe (kolumny: \textit{id}, \textit{createdAt}, \textit{updatedAt}), albo 
+    \end{enumerate}
+
 
 \section{Przygotowanie danych}
 Przedmiotem analizy był zbiór Jester \cite{Jester}, który obejmował 100 różnych żartów wraz z ocenami ich śmieszności od niespełna 75 tysięcy osób. Żarty oceniane były w skali $(-10.0, 10.0)$. Przygotowanie danych wymagało w pierwszej części połączenia 3 plików z ocenami (po ok. 24 tys. ocen na każdy z plików), a następnie dla każdego wiersza wybranie wszystkich kolumn poza pierwszą (gdyż ta zawierała informację o liczbie ocenionych żartów przez danego użytkownika) i zamianę wartości \textit{99} na \code{NaN}, ponieważ oryginalny zbiór danych liczbą 99 sygnalizował brak oceny (\textit{null}), którego reprezentacją w bibliotece \textbf{numpy} jest właśnie \code{NaN}. Ostatecznie zbiór wszystkich ocen miał rozmiar: 73421 wierszy $\times$ 100 kolumn i prezentował się następująco (pierwsze 10. wierszy, kolumny symbolizują numery kolejnych żartów):
@@ -167,6 +196,6 @@ mlp = MLPRegressor(solver='sgd', alpha=0.0, learning_rate='constant', random_sta
 
 \vspace{1cm}
 \hrulefill
-% \bibliographystyle{plain}
-% \bibliography{References}
+\bibliographystyle{plain}
+\bibliography{references}
 \end{document}

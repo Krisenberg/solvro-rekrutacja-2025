@@ -3,6 +3,15 @@ src/vix.py
 
 reports/
 
+latex/*.aux
+latex/*.bbl
+latex/*.blg
+latex/*.fdb_latexmk
+latex/*.fls
+latex/*.log
+latex/*.out
+latex/*.toc
+
 # Python-generated files
 __pycache__/
 *.py[oc]
