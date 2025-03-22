@@ -1,7 +1,44 @@
 [project]
-name = "rekrutacja-2025"
-version = "0.1.0"
-description = "Add your description here"
+name = "solvro-rekrutacja-2025"
+version = "1"
+description = "My solution to a recruiting task for Solvro 2025 Spring Recruitment "
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pandas>=2.2.3",
+    "plotly>=6.0.1",
+    "ruff>=0.11.2",
+    "scikit-learn>=1.6.1",
+    "setuptools>=77.0.3",
+    "structlog>=25.2.0",
+    "tabulate>=0.9.0",
+    "ydata-profiling>=4.15.1",
+]
+
+[tool.ruff]
+lint.select = [
+    "E",  # pydocstyle
+    "W",  # pydocstyle
+    "F",  # pyflakes
+    "I",  # isort
+    "N",  # pep8 naming
+    "UP",  # pyupgrade
+    "D",  # pydocstyle
+    "PD",  #pandas-vet
+]
+lint.ignore = [
+    "D100",  # Missing docstring in public module
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D106",  # Missing docstring in public nested class
+    "D107",  # Missing docstring in __init__
+]
+line-length = 88  # Same as Black.
+indent-width = 4  # Same as Black.
+
+[tool.ruff.format]
+quote-style = "double"  # Like Black, use double quotes for strings.
+indent-style = "space"  # Like Black, indent with spaces, rather than tabs.
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # Accepts: "google", "numpy", or "pep257".

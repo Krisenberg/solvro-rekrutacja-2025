@@ -1,3 +1,8 @@
+src/test.py
+src/vix.py
+
+reports/
+
 # Python-generated files
 __pycache__/
 *.py[oc]
