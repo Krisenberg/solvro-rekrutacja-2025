@@ -5,6 +5,7 @@ description = "My solution to a recruiting task for Solvro 2025 Spring Recruitme
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "ipykernel>=6.29.5",
     "pandas>=2.2.3",
     "plotly>=6.0.1",
     "ruff>=0.11.2",

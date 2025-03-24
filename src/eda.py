@@ -9,97 +9,29 @@ from ydata_profiling import ProfileReport
 logger: structlog.stdlib.BoundLogger = structlog.get_logger()
 
 
-def test_eda(file_path: str | Path) -> pd.DataFrame:
+def _parse_data(file_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Loads the cocktail dataset extracting cocktails and ingredients."""
+    logger.info(f"Loading data from {file_path}")
+    cocktail_df = pd.read_json(Path(file_path).resolve())
+
     with open(Path(file_path).resolve()) as file:
-        cocktails_data = json.load(file)
+        data = json.load(file)
 
-    # Main cocktail information
-    cocktails_df = pd.json_normalize(cocktails_data)
+    ingredients_df = pd.json_normalize(data, 'ingredients')
 
-    # Ingredients information
-    ingredients_list = []
-    for cocktail in cocktails_data:
-        for ingredient in cocktail.get('ingredients', []):
-            ingredient['cocktail_id'] = cocktail['id']
-            ingredient['cocktail_name'] = cocktail['name']
-            ingredients_list.append(ingredient)
-
-    ingredients_df = pd.DataFrame(ingredients_list)
-    ingredient_pivot = ingredients_df.pivot_table(
-        index=['cocktail_id', 'cocktail_name'],
-        columns='name',
-        values='alcohol',  # or another relevant value
-        aggfunc='first',  # or sum, mean, etc.
-        fill_value=0
-    )
-
-    # Reset index to prepare for merge
-    ingredient_pivot = ingredient_pivot.reset_index()
-
-    # Merge with the main cocktail dataframe
-    wide_df = cocktails_df.merge(
-        right=ingredient_pivot,
-        how='left',
-        left_on='id',
-        right_on='cocktail_id',
-    )
-
-    # Clean up - drop redundant columns if needed
-    wide_df = wide_df.drop('cocktail_id', axis=1)
-    return wide_df
-
-
-# def load_data(file_path: str | Path) -> pd.DataFrame:
-#     """Loads the cocktail dataset from the JSON file (OS agnostic file path)."""
-#     logger.info(f"Loading data from {file_path}")
-#     with open(Path(file_path).resolve()) as file:
-#         cocktails_data = json.load(file)
-
-#     cocktails_df = pd.json_normalize(cocktails_data)
-
-#     # Ingredients information
-#     ingredients_list = []
-#     for cocktail in cocktails_data:
-#         for ingredient in cocktail.get('ingredients', []):
-#             ingredient['cocktail_id'] = cocktail['id']
-#             ingredient['cocktail_name'] = cocktail['name']
-#             ingredients_list.append(ingredient)
-
-#     ingredients_df = pd.DataFrame(ingredients_list)
-
-#     cocktail_df = pd.json_normalize(Path(file_path).resolve())
-#     logger.info(f"Loaded dataset with shape: {cocktail_df.shape}")
-#     return cocktail_df
-
-
-
-# For exploratory analysis, you'll want to flatten nested structures
-# Create dataframes for different components
-
-# Main cocktail information
-# cocktails_df = pd.json_normalize(cocktails_data)
-
-# # Ingredients information
-# ingredients_list = []
-# for cocktail in cocktails_data:
-#     for ingredient in cocktail.get('ingredients', []):
-#         ingredient['cocktail_id'] = cocktail['id']
-#         ingredient['cocktail_name'] = cocktail['name']
-#         ingredients_list.append(ingredient)
-        
-# ingredients_df = pd.DataFrame(ingredients_list)
+    return cocktail_df, ingredients_df
 
 
 def _calculate_missing_percentage(df_column: pd.DataFrame) -> float:
     return (df_column.isna().sum() / len(df_column) * 100).round(2)
 
 
-def explore_data(cocktail_df: pd.DataFrame) -> None:
+def _explore_cocktail_data(cocktail_df: pd.DataFrame) -> None:
     """Basic exploration of the given dataset."""
-    logger.info("Starting dataset exploration")
-    print("\n\n=== Dataset Exploration ===")
+    logger.info("Starting cocktail dataset exploration")
+    print("\n\n=== Cocktail Dataset Exploration ===")
 
-    print(f"Number of cocktails: {len(cocktail_df)}")
+    print(f"Number of cocktails: {len(cocktail_df.id.unique())}")
 
     print("\nColumns info:")
     cols_info = pd.DataFrame({
@@ -128,31 +60,73 @@ def explore_data(cocktail_df: pd.DataFrame) -> None:
     alcoholic_distribution = cocktail_df["alcoholic"].value_counts()
     print(alcoholic_distribution)
 
-    print("\n\n=== Category-Glass correlation ===")
-    contingency_table = pd.crosstab(cocktail_df["category"], cocktail_df["glass"])
-    print(f"Contingency table shape: {contingency_table.shape}")
-    print(f"Contingency table:\n {contingency_table}")
+    logger.info("Finished dataset exploration")
+
+
+def _explore_ingredients_data(ingredients_df: pd.DataFrame) -> None:
+    """Basic exploration of the given dataset."""
+    logger.info("Starting ingredients dataset exploration")
+    print("\n\n=== Ingredients Dataset Exploration ===")
+
+    print(f"Number of cocktails: {len(ingredients_df.id.unique())}")
+
+    print("\nColumns info:")
+    cols_info = pd.DataFrame({
+        "Column": col,
+        'Data Type': ingredients_df[col].dtype,
+        'Missing Values': ingredients_df[col].isna().sum(),
+        'Missing Percentage': _calculate_missing_percentage(ingredients_df[col]),
+    } for col in ingredients_df.columns)
+    print(tabulate(cols_info, headers=cols_info.keys()))
+
+    header = "Alcoholic ingredient type distribution"
+    print(f"\n{header}")
+    print(f"{"-" * len(header)}")
+    alcoholic_distribution = ingredients_df["alcohol"].value_counts()
+    print(alcoholic_distribution)
+
+    header = "Ingredient type distribution"
+    print(f"\n{header}")
+    print(f"{"-" * len(header)}")
+    type_distribution = ingredients_df["type"].value_counts()
+    print(type_distribution)
+
+    header = "Alcohol percentage distribution"
+    print(f"\n{header}")
+    print(f"{"-" * len(header)}")
+    percentage_distribution = ingredients_df["percentage"].value_counts()
+    print(percentage_distribution)
 
     logger.info("Finished dataset exploration")
 
 
-def run_ydata_profiling(cocktail_df: pd.DataFrame, report_path: str | Path) -> None:
+def _run_ydata_profiling(
+    dataset_df: pd.DataFrame,
+    report_path: str | Path,
+    title: str
+) -> None:
     logger.info("Creating a dataset report using ydata-profiling library")
-    dataset_profile = ProfileReport(cocktail_df, title = "Cocktail dataset report")
+    dataset_profile = ProfileReport(dataset_df, title = title)
     dataset_profile.to_file(report_path, silent=True)
 
 
 if __name__ == "__main__":
-    # file_path = Path(__file__).parents[1] / "data" / "cocktail_dataset.json"
-    # cocktail_df = load_data(file_path)
-    # explore_data(cocktail_df)
-    # reports_dir = Path(__file__).parents[1] / "reports"
-    # reports_dir.mkdir(exist_ok=True)
-    # report_path = reports_dir / "cocktail_dataset_report.html"
-    # run_ydata_profiling(cocktail_df, report_path)
-    file_path = Path(__file__).parents[1] / "data" / "cocktail_dataset.json"
-    wide_df = test_eda(file_path)
+    dataset_path = Path(__file__).parents[1] / "data" / "cocktail_dataset.json"
+    cocktail_df, ingredients_df = _parse_data(dataset_path)
+
+    _explore_cocktail_data(cocktail_df)
+    _explore_ingredients_data(ingredients_df)
+
     reports_dir = Path(__file__).parents[1] / "reports"
     reports_dir.mkdir(exist_ok=True)
-    report_path = reports_dir / "test_report.html"
-    run_ydata_profiling(wide_df, report_path)
+
+    _run_ydata_profiling(
+        cocktail_df,
+        report_path=reports_dir / "cocktails_eda.html",
+        title="Cocktail dataset report"
+    )
+    _run_ydata_profiling(
+        ingredients_df,
+        report_path=reports_dir / "ingredients_eda.html",
+        title="Ingredients dataset report"
+    )
