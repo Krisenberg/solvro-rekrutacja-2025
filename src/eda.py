@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 import structlog
 from tabulate import tabulate
 from ydata_profiling import ProfileReport

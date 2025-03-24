@@ -87,11 +87,12 @@
 \section{Analiza danych}
     Zbiór danych, pochodzący z bazy danych TheCocktailDB, zawierał listę koktajli wraz ze składnikami niezbędnymi do ich przyrządzenia. Link do zbioru danych został dołączony do sekcji Źródeł tego raportu \cite{zbior_danych}.
 
-    W celu przeprowadzenia wstępnej analizy danych (\textit{EDA}) napisany został skrypt \code{src/eda.py}, który miał za zadanie:
+    Pierwsza analiza zbioru danych wykazała, że konieczna będzie osobna analiza składników koktalji, które początkowo były reprezentowane jako zagnieżdżone struktury danych wewnątrz rekordów opisujących koktajle. W celu przeprowadzenia poprawnej wstępnej analizy danych (\textit{EDA}) napisany został skrypt \code{src/eda.py}, który miał za zadanie:
     \begin{itemize}
         \item wczytać dane z pliku w formacie JSON do formatu DataFrame z biblioteki Pandas,
+        \item wydzielić dane dotyczące składników koktajli do osobnego DataFrame'a,
         \item wyświetlić podstawowe statystyki danych,
-        \item wygenerować pełny raport opisujący dane korzystając z biblioteki ydata-profiling.
+        \item wygenerować pełne raporty opisujący dane o koktajlach i składnikach koktajli korzystając z biblioteki ydata-profiling.
     \end{itemize}
     Na zdjęciu nr \ref{fig:run_eda} przedstawiony został fragment wyjścia standardowego po uruchomieniu skryptu.
 
@@ -104,95 +105,61 @@
 
     Informacje dostarczone przez skrypt i wygenerowany raport pozwoliły na wyciągnięcie nastepujących wniosków:
     \begin{enumerate}
-        \item Każdy koktajl ze zbioru danych opisany jest przez 11 cech, przy czym 4 z nich są zupełnie nieistotne z punktu widzenia dalszej analizy, ponieważ albo zawierają informacje typowo bazodanowe (kolumny: \textit{id}, \textit{createdAt}, \textit{updatedAt}), albo 
+        \item Każdy koktajl ze zbioru danych opisany jest przez 11 cech, przy czym 4 z nich są zupełnie nieistotne z punktu widzenia dalszej analizy, ponieważ albo zawierają informacje typowo bazodanowe (kolumny: \textit{id}, \textit{createdAt}, \textit{updatedAt}), albo są linkiem URL do zdjęcia przedstawiającego dany koktajl (\textit{imageUrl}). Cecha \textit{tags} także została na tym etapie odrzucona - niespełna 74\% koktajli nie ma żadnego tagu przypisanego, a gdy koktajl ma przypisane tagi to sprawiają one wrażenie bardzo luźno powiązanych, niezbyt informatywnych. Cecha \textit(instructions) także została odrzucona, ponieważ zawiera ona opis przygotowania koktajlu w języku naturalnym, co nie stanowiło dobrej podstawy do późniejszej klasteryzacji.
+        \item Cecha \textit{category} jest mało wartościowa w kontekście późniejszej klasteryzacji ze względu na fakt, że zawiera jedynie 3 różne wartości, przy czym zdecydowana większość koktajli ma przypisaną taką samą kategorię (Ordinary Drink - zdjęcie \ref{fig:category}).
+        \item Cecha \textit{alcoholic} jest nieistotna ze względu na to, że przyjmuje stałą wartość równą 1 (tzn. wszystkie drinki są alkoholowe).
+        \item Jedyną cechą składników koktajli łatwą do uwzględnienia w późniejszej klasteryzacji była ich alkoholowość, tzn. flaga informująca o tym, czy dany składnik zawiera alkohol.
     \end{enumerate}
+
+    \begin{figure}[!htbp]%
+        \centering
+        \includegraphics[width=\textwidth]{category_eda.png}
+        \caption{Analiza cechy \textit{category}}%
+        \label{fig:category}
+    \end{figure}
 
 
 \section{Przygotowanie danych}
-Przedmiotem analizy był zbiór Jester \cite{Jester}, który obejmował 100 różnych żartów wraz z ocenami ich śmieszności od niespełna 75 tysięcy osób. Żarty oceniane były w skali $(-10.0, 10.0)$. Przygotowanie danych wymagało w pierwszej części połączenia 3 plików z ocenami (po ok. 24 tys. ocen na każdy z plików), a następnie dla każdego wiersza wybranie wszystkich kolumn poza pierwszą (gdyż ta zawierała informację o liczbie ocenionych żartów przez danego użytkownika) i zamianę wartości \textit{99} na \code{NaN}, ponieważ oryginalny zbiór danych liczbą 99 sygnalizował brak oceny (\textit{null}), którego reprezentacją w bibliotece \textbf{numpy} jest właśnie \code{NaN}. Ostatecznie zbiór wszystkich ocen miał rozmiar: 73421 wierszy $\times$ 100 kolumn i prezentował się następująco (pierwsze 10. wierszy, kolumny symbolizują numery kolejnych żartów):
+Ciekawym pomysłem na poradzenie sobie z zagnieżdżoną strukturą składników koktajli była prosta ich agregacja - przypisanie do każdego koktajlu łącznej liczby składników, liczby składników zawierających alkohol i tych bez alkoholu.
+Następnie usunięto z DataFrame'u niepotrzebne kolumny (opisane w poprzedniej sekcji).
 
-    \begin{table}[!htbp]%
-        \centering
-        \begin{tabular}{l|rrrrcrr}
-             & 1 & 2 & 3 & 4 & $\dots$ & 99 & 100 \\ \hline
-            0 & -7.82 & 8.79 & -9.66 & -8.16 & & NaN & NaN \\
-            1 & 4.08 & -0.29 & 6.36 & 4.37 & & -4.32 & 1.07 \\
-            2 & NaN & NaN & NaN & NaN & & NaN & NaN \\
-            3 & NaN & 8.35 & NaN & NaN & & NaN & NaN \\
-            4 & 8.50 & 4.61 & -4.17 & -5.39 & & 1.80 & 1.60 \\
-            5 & -6.17 & -3.54 & 0.44 & -8.50 & & -5.05 & -3.45 \\
-            6 & NaN & NaN & NaN & NaN & & NaN & NaN \\
-            7 & 6.84 & 3.16 & 9.17 & -6.21 & & 1.31 & 0.00 \\
-            8 & -3.79 & -3.54 & -9.42 & -6.89 & & -3.40 & -4.95 \\
-            9 & 3.01 & 5.15 & 5.15 & 3.01 & & NaN & NaN \\
-        \end{tabular}
-        \caption{Przykładowe oceny śmieszności kolejnych żartów (od 10 osób)}
-        \label{tab:example_ratings}
-    \end{table}
+Kolejnym etapem przygotowania danych było ich enkodowanie - zastosowano \code{LabelEncoder} na kolumnie \textit{glass}. Ostatnim krokiem tego procesu było przeskalowanie danych przy pomocy \code{StandardScalera}.
 
-\noindent Aby móc trenować model sieci neuronowej na zebranych danych konieczne było przypisanie jednej wartości dla każdego żartu, ponieważ celem modelu jest znalezienie takiej \textbf{funkcji}, która możliwie najlepiej opisze mapowanie treści żartu na poziom jego śmieszności. Funkcja natomiast z definicji jest takim przyporządkowaniem, które każdemu elementowi z jednego zbioru przyporządkowuje dokładnie jeden element z drugiego zbioru. Z tego powodu każdemu ze 100 żartów przypisana została średnia arytmetyczna z jego ocen. Otrzymano więc wektor długości 100, gdzie najmniejsza średnia ocen wyniosła: $-3.705$, a największa: $3.363$. Wektor ten stał się wektorem etykiet \code{Y}.
 
-\vspace{0.2cm}
+\section{Klasteryzacja}
+Do wyznaczenia liczby klastrów użyto \textit{Elbow Method}, która wskazywała na 4 lub 5 klastrów. Przyjęto wartość 4 ze względu na stosunkowo mały zbiór danych. Dane zostały sklasteryzowane metodą \code{KMeans} z biblioteki \textit{scikit-learn}. Wykres ze zdjęcia \ref{fig:results} prezentuje efekty klasteryzacji.
 
-\noindent W celu przygotowania wektora tekstów \code{X} połączono sto plików w formacie \textit{html}, z których każdy zawierał tekst danego żartu. Przy użyciu biblioteki \textbf{beautifulsoup4} pobrane zostały treści żartów, które po dodatkowym przetworzeniu (usunięciu znaków białych, usunięciu prefiksów ,,Q.'' oraz ,,A.'' dla żartów z pytaniem i odpowiedzią, itp.) trafiły do jednej listy. Finalnie pierwsze pięć elementów listy wyglądało następująco:
+Widoczny jest podział koktajli względem łącznej liczby potrzebnych składników, a także względem alkoholowych składników. Możemy wyróżnić 4 grupy koktajli:
+\begin{itemize}
+    \item te, które wymagają tylko 1 składnika alkoholowego oraz niewielu składników sumarycznie (2/3/4).
+    \item te, które wymagają niewielu składników alkoholowych (1/2) oraz wielu składników sumarycznie (5/6).
+    \item te, które wymagają kilku składników alkoholowych (2/3) przy jednoczesnej niewielkiej liczbie sumarycznych składników (2/3/4).
+    \item te, które wymagają wielu składników alkoholowych (2/3/4) i wielu składników sumarycznie (5/6).
+\end{itemize}
 
-    \begin{enumerate}
-        \item A man visits the doctor. The doctor says "I have bad news for you.You have cancer and Alzheimer's disease". The man replies "Well, thank God I don't have cancer!"
-        \item This couple had an excellent relationship going until one day he came home from work to find his girlfriend packing. He asked her why she was leaving him and she...
-        \item What's 200 feet long and has 4 teeth?  The front row at a Willie Nelson Concert.
-        \item What's the difference between a man and a toilet?  A toilet doesn't follow you around after you use it.
-        \item What's O. J. Simpson's Internet address?  Slash, slash, backslash, slash, slash, escape.
-    \end{enumerate}
+\clearpage
 
-\noindent Tak przygotowane teksty żartów należało następnie poddać procesowi wektoryzacji opartemu o tzw. słownik. Każda treść żartu przekształcona została na wektor $x \in \mathbb{N}^{D}$, który na i-tej pozycji zawierał liczbę wystąpień słowa/sylaby o indeksie i. Podczas laboratorium przetestowano dwa modele przetwarzania języka naturalnego: \textbf{Bert (bert-base-cased)} oraz \textbf{FastText}. W przypadku tego pierwszego długość wektora $x$ równa była 768, a w przypadku drugiego 300. Tak przekształcona lista żartów stała się wektorem \code{X}.
+\begin{figure}[!htbp]%
+    \centering
+    \includegraphics[width=\textwidth]{clusters.png}
+    \caption{Efekt klasteryzacji}%
+    \label{fig:results}
+\end{figure}
 
-\vspace{0.2cm}
+Można się zgodzić, że dokonany podział jest zasadny i stosunkowo logiczny. Poza ewaluacją jakościową przeprowadzono także ewaluację ilościową i otrzymano następujące wartości metryk:\\
+\begin{table}[!htbp]%
+    \centering
+    \begin{tabular}{l|r}
+        Metryka & wartość \\ \hline
+        Inertia & 324.19 \\
+        Silhouette Score & 0.3119 \\
+        Calinski-Harabasz Score & 46.22 \\
+        Davies-Bouldin Score & 1.3301 \\
+    \end{tabular}
+\end{table}\\
 
-\noindent Ostatnim etapem przygotowania danych był podział wektorów \code{X} i \code{Y} na zbiór danych uczących i walidacyjnych. W tym celu skorzystano z funkcji \code{train\_test\_split} z biblioteki \textbf{sklearn.model\_selection}. Ze względu na stosunkowo niewielki rozmiar zbioru danych wejściowych dokonano podziału w stosunku 3:7, tj. rozmiar zbioru danych testowych stanowił 30\% rozmiaru zbioru wszystkich danych. Aby zapewnić powtarzalność całego procesu między kolejnymi jego wykonaniami wszystkie funkcje mogące zachowywać się w sposób pseudolosowy otrzymywały taki sam generator liczb pseudolosowych (z takim samym ziarnem).
 
-\section{Wykorzystanie modelu MLP}
-    \textit{Multi-layer Perceptron (MLP)} jest algorytmem uczenia nadzorowanego, który poszukuje funkcji
-    $$f: \mathbb{R}^{m} \rightarrow \mathbb{R}^{o}$$
-    ($m$ - liczba wymiarów wejściowych, $o$ - liczba wymiarów wyjściowych) poprzez trening na zbiorze danych uczących. Może zostać użyty w przypadku problemu regresji, a także klasyfikacji. Pomiędzy warstwami wejściową i wyjściową może znajdować się jedna lub więcej warstw, zwanych warstwami ukrytymi. Symboliczna reprezentacja sieci tego typu pochodząca z dokumentacji użytej biblioteki \cite{scikit} zaprezentowana jest na poniższym zdjęciu:
-    \begin{figure}[!htbp]%
-        \centering
-        % \includegraphics[width=7cm]{multilayerperceptron_network.png}
-        \caption{Przykładowa sieć MLP z jedną warstwą ukrytą}%
-        \label{fig:mlp_example}
-    \end{figure}
-
-    \noindent W dalej opisanych eksperymentach używany był model \code{MLPRegressor}, którego najważniejsze hiperparametry (z punktu widzenia tego laboratorium) to:
-
-    \begin{enumerate}
-        \item \textbf{hidden\_layer\_sizes} - tablica, której i-ty element reprezentuje liczbę neuronów w i-tej warstwie ukrytej. We wszystkich testach używana była jedna warstwa ukryta. Domyślna wartość: \textit{(100,)}.
-        \item \textbf{solver} - metoda optymalizacji wag. W testach używana była wartość \textit{sgd}, która używa stochastyczny gradient do wyznaczenia kierunku poszukiwań. Domyślna wartość: \textit{adam}.
-        \item \textbf{alpha} - siła regularyzacji L2. W testach używaną wartością było $0.0$. Domyślna wartość: $0.0001$.
-        \item \textbf{learning\_rate} - strategia aktualizacji tempa uczenia. W testach ustawiona była wartość \textit{constant}, która oznacza stałą prędkość uczenia parametryzowaną przez \textbf{learning\_rate\_init}. Domyślna wartość: \textit{constant}.
-        \item \textbf{learning\_rate\_init} - początkowa prędkość uczenia, kontroluje wielkość ,,kroku'' przy aktualizacji wag. Domyślna wartość: $0.001$.
-        \item \textbf{random\_state} - określa generator pseudolosowy używany przy niektórych wartościach, np. wagach. W testach używano \code{np.random.RandomState(42)} w celu zapewnienia powtarzalności między kolejnymi wykonaniami danego testu. Domyślna wartość: \textit{None}.
-        \item \textbf{warm\_start} - w przypadku ustawienia flagi \code{True} poprzednie rozwiązanie jest używane ponowne przy inicjalizacji następnego (w przeciwnym przypadku poprzednie rozwiązanie jest usuwane). W testach flaga była ustawiona na wartość \code{True}. Domyślna wartość: \code{False}.
-        \item \textbf{max\_iter} - maksymalna liczba iteracji. W przypadku użycia metody \textit{sgd} wartość ta określa liczbę epok. W testach ustawiona była wartość $1$, ponieważ liczba epok kontrolowana była w inny sposób (przez zewnętrzny licznik), który umożliwiał łatwe tworzenie wykresów. Domyślna wartość: \textit{200}.
-    \end{enumerate}
-    
-    \subsection{Model MLP o domyślnej konfiguracji}
-        Etap testowania wpływu poszczególnych hiperparametrów na jakość działania sieci neuronowej typu MLP rozpoczynał się od sprawdzenia działania podstawowego modelu o domyślnej konfiguracji. Kod odpowiedzialny za przygotowanie takiego podstawowego modelu wyglądał następująco:
-\begin{lstlisting}
-rng = np.random.RandomState(42)
-
-mlp = MLPRegressor(solver='sgd', alpha=0.0, learning_rate='constant', random_state=rng, warm_start=True, max_iter=1)
-\end{lstlisting}
-
-    \noindent Wykresy na poniższych zdjęciach przedstawiają wartość funkcji kosztu (błąd średniokwadratowy) odpowiednio zbioru treningowego i walidacyjnego w zależności od epoki:
-        % \begin{figure}[!htbp]%
-        %     \centering
-        %     \subfloat[\centering Model \textbf{Bert}]{{\includegraphics[width=7cm]{charts/bert_default.png} }}%
-        %     \qquad
-        %     \subfloat[\centering Model \textbf{FastText}]{{\includegraphics[width=7cm]{charts/fasttext_default.png} }}%
-        %     \caption{Porównanie funkcji kosztu w zależności od epoki dla obu zbiorów, dla obu modeli NLP}
-        %     \label{default_comparison}
-        % \end{figure}
-
-    \noindent Wykres dla modelu Bert świadczy o tym, że po ok. 500 epokach pojawiło się zjawisko \textit{overfittingu} - model MLP zaczął się zbyt dobrze dopasowywać do danych treningowych, na co wskazują rosnące wartości MSE dla zbioru walidacyjnego - model zaczął sobie gorzej radzić z predykowaniem wartości dla nieznanych próbek, ponieważ przeuczył się na danych treningowych. Wykres dla modelu FastText z kolei nie wykazuje oznak \textit{overfittingu}, ale generalnie widoczne jest bardzo małe dopasowanie do danych w przypadku obu zbiorów, a drobne różnice między wartościami MSE dla zbioru uczącego i walidacyjnego mogą wynikać z natury samych zbiorów - dane testowe mogą zawierać przykładowo więcej szumów i trudniejszych tekstów do predykowania.
+Na ich podstawie możemy stwierdzić, że dokonana klasteryzacja, nawet bez odpowiedniego tuningowania hiperparametrów okazała się całkiem skuteczna, co potwierdziły przeprowadzone ewaluacje.
 
 \vspace{1cm}
 \hrulefill
